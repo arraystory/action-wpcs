@@ -81,6 +81,58 @@ runs:
         fi
 
     - name: Run PHPCS
+      id: phpcs
       shell: bash
       run: |
+        set +e
+        OUTPUT=$(phpcs ${{ inputs.paths }} --standard=./phpcs.xml --report=json --runtime-set ignore_warnings_on_exit 1 2>&1)
+        EXIT_CODE=$?
+
+        echo "exit_code=$EXIT_CODE" >> $GITHUB_OUTPUT
+
+        # Parse JSON and generate markdown summary
+        php -r '
+        $json = json_decode($ARGV[1], true);
+        if (!$json) {
+            echo "No issues found! ✅\n";
+            exit(0);
+        }
+
+        $totals = $json["totals"] ?? [];
+        $errors = $totals["errors"] ?? 0;
+        $warnings = $totals["warnings"] ?? 0;
+        $files = $json["files"] ?? [];
+
+        $summary = "## WPCS Checker Results\n\n";
+        $summary .= "| Metric | Count |\n";
+        $summary .= "|--------|-------|\n";
+        $summary .= "| ❌ Errors | $errors |\n";
+        $summary .= "| ⚠️ Warnings | $warnings |\n";
+        $summary .= "| 📁 Files Scanned | " . count($files) . " |\n\n";
+
+        if ($errors > 0 || $warnings > 0) {
+            $summary .= "### Issues by File\n\n";
+            foreach ($files as $file => $data) {
+                $msgs = $data["messages"] ?? [];
+                if (empty($msgs)) continue;
+
+                $summary .= "<details>\n";
+                $summary .= "<summary><code>" . basename($file) . "</code> - " . count($msgs) . " issue(s)</summary>\n\n";
+                $summary .= "| Line | Type | Message |\n";
+                $summary .= "|------|------|----------|\n";
+                foreach ($msgs as $msg) {
+                    $type = $msg["type"] === "ERROR" ? "❌" : "⚠️";
+                    $line = $msg["line"];
+                    $message = str_replace("|", "\\|", $msg["message"]);
+                    $summary .= "| $line | $type | $message |\n";
+                }
+                $summary .= "\n</details>\n\n";
+            }
+        }
+
+        echo $summary;
+        ' "$OUTPUT" >> $GITHUB_STEP_SUMMARY
+
+        # Also output full report to console
         phpcs ${{ inputs.paths }} --standard=./phpcs.xml --report=full --runtime-set ignore_warnings_on_exit 1
+        exit $EXIT_CODE
