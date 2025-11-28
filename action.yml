@@ -1,0 +1,91 @@
+name: 'WordPress Coding Standards'
+description: 'Run PHPCS with WordPress Coding Standards'
+author: 'arraystory'
+
+branding:
+  icon: 'check-circle'
+  color: 'blue'
+
+inputs:
+  php_version:
+    description: 'PHP version to use'
+    required: false
+    default: '8.2'
+  text_domain:
+    description: 'Plugin/theme text domain'
+    required: true
+  prefixes:
+    description: 'Function/class prefixes (comma-separated)'
+    required: false
+    default: ''
+  minimum_php:
+    description: 'Minimum PHP version for compatibility checks'
+    required: false
+    default: '7.4'
+  paths:
+    description: 'Paths to scan'
+    required: false
+    default: '.'
+  ignore:
+    description: 'Paths to ignore (comma-separated)'
+    required: false
+    default: 'vendor,node_modules,assets'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: ${{ inputs.php_version }}
+        tools: composer
+
+    - name: Get Composer cache directory
+      id: composer-cache
+      shell: bash
+      run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
+
+    - name: Cache Composer dependencies
+      uses: actions/cache@v4
+      with:
+        path: ${{ steps.composer-cache.outputs.dir }}
+        key: ${{ runner.os }}-composer-wpcs-${{ inputs.php_version }}
+        restore-keys: ${{ runner.os }}-composer-wpcs-
+
+    - name: Install PHPCS and WPCS
+      shell: bash
+      run: |
+        composer global config allow-plugins.dealerdirect/phpcodesniffer-composer-installer true
+        composer global require --dev squizlabs/php_codesniffer
+        composer global require --dev wp-coding-standards/wpcs:"^3.0"
+        composer global require --dev phpcompatibility/phpcompatibility-wp:"*"
+        echo "$(composer global config bin-dir --absolute)" >> $GITHUB_PATH
+
+    - name: Copy phpcs.xml
+      shell: bash
+      run: |
+        cp ${{ github.action_path }}/phpcs.xml ./phpcs.xml
+
+    - name: Configure ruleset
+      shell: bash
+      run: |
+        # Set text domain
+        sed -i 's/__TEXT_DOMAIN__/${{ inputs.text_domain }}/g' phpcs.xml
+
+        # Set minimum PHP version
+        sed -i 's/__MINIMUM_PHP__/${{ inputs.minimum_php }}/g' phpcs.xml
+
+        # Set prefixes if provided
+        if [ -n "${{ inputs.prefixes }}" ]; then
+          sed -i 's/__PREFIXES__/${{ inputs.prefixes }}/g' phpcs.xml
+        else
+          sed -i '/__PREFIXES__/d' phpcs.xml
+        fi
+
+        # Set ignore paths
+        sed -i 's/__IGNORE__/${{ inputs.ignore }}/g' phpcs.xml
+
+    - name: Run PHPCS
+      shell: bash
+      run: |
+        phpcs ${{ inputs.paths }} --standard=./phpcs.xml --report=full
