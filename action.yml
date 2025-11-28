@@ -1,4 +1,4 @@
-name: 'WordPress Coding Standards'
+name: 'WPCS Checker'
 description: 'Run PHPCS with WordPress Coding Standards'
 author: 'arraystory'
 

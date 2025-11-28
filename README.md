@@ -1,4 +1,4 @@
-# WordPress Coding Standards Action
+# WPCS Checker
 
 A reusable GitHub Action to run PHPCS with WordPress Coding Standards on your plugins and themes.
 
