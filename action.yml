@@ -75,15 +75,12 @@ runs:
         # Set minimum PHP version
         sed -i 's/__MINIMUM_PHP__/${{ inputs.minimum_php }}/g' phpcs.xml
 
-        # Set prefixes if provided
+        # Set prefixes if provided, otherwise remove the entire prefix rule block
         if [ -n "${{ inputs.prefixes }}" ]; then
           sed -i 's/__PREFIXES__/${{ inputs.prefixes }}/g' phpcs.xml
         else
-          sed -i '/__PREFIXES__/d' phpcs.xml
+          sed -i '/<rule ref="WordPress.NamingConventions.PrefixAllGlobals">/,/<\/rule>/d' phpcs.xml
         fi
-
-        # Set ignore paths
-        sed -i 's/__IGNORE__/${{ inputs.ignore }}/g' phpcs.xml
 
     - name: Run PHPCS
       shell: bash
