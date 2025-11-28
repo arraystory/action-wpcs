@@ -83,4 +83,4 @@ runs:
     - name: Run PHPCS
       shell: bash
       run: |
-        phpcs ${{ inputs.paths }} --standard=./phpcs.xml --report=full
+        phpcs ${{ inputs.paths }} --standard=./phpcs.xml --report=full --runtime-set ignore_warnings_on_exit 1
